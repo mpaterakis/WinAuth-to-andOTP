@@ -1,4 +1,3 @@
-
 <html>
 <body>
 	<h1>WinAuth to andOTP conversion</h1>
@@ -7,23 +6,26 @@
 	<button onclick="startConversion()" style="margin-top: 15px;">CONVERT</button>
 	<script> 
 		function convertWinAuthToAndOtp(inputText) {
-			console.log(inputText);
 			let otpJSON = [];
 			let splitText = inputText.split('\n');
 
 			for (lineIndex in splitText) {
-				if (lineIndex < 1 || splitText[lineIndex].trim().length < 1) {
+				if (splitText[lineIndex].trim().length < 1) {
 					continue;
 				}
 				var line = splitText[lineIndex];
 				var otpBlock = {};
 				var type = line.split('otpauth://')[1].split('/')[0];
-				var label = line.split(type + '/')[1].split('?')[0].replaceAll('+', ' ');
+				var label = decodeURIComponent(line.split(type + '/')[1].split('?')[0]).replaceAll('+', ' ');
 				var secret = line.split('?secret=')[1].split('&')[0];
 				var digits = line.split('&digits=')[1].split('&')[0];
 				var issuer = '';
 				if (line.split('&issuer=').length > 1) {
-					issuer = line.split('&issuer=')[1].split('&')[0];
+					issuer = decodeURIComponent(line.split('&issuer=')[1].split('&')[0]).replaceAll('+', ' ');
+					label = label.replace(issuer + ':', '');
+				}
+				if (issuer === 'Steam') {
+					type = 'STEAM';
 				}
 
 				otpBlock.secret = secret;
@@ -48,7 +50,7 @@
 				var returnedFile = convertWinAuthToAndOtp(reader.result);
 				var date = new Date();
 				var utc = date.toISOString().replaceAll('-', '');
-				download('andOTP' + utc + '.json', JSON.stringify(returnedFile));
+				download('andOTP' + utc + '.json', JSON.stringify(returnedFile, null, 4));
 			});
 			reader.readAsText(file.files[0]);
 		}
