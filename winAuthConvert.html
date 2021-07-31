@@ -1,60 +1,129 @@
 <html>
+<head>
+	<title>WinAuth to andOTP converter</title>
+	<meta name="author" content="Manos Paterakis">
+	<meta charset="UTF-8">
+	<!-- https://css-tricks.com/emojis-as-favicons/ -->
+	<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔒</text></svg>">
+</head>
+<style>
+	h1 {
+		color: gray;
+	}
+	body {
+		font-family: Arial;
+		text-align: center;
+		background: black;
+	}
+	input {
+		display: none;
+	}
+	button, label {
+		display: inline-block;
+		font-size: 14px;
+		background: gray;
+		border: solid 1px gray;
+		border-radius: 4px;
+		padding-top: 10px;
+		padding-bottom: 10px;
+		width: 150px;
+	}
+	button:not([disabled]), label {
+		color: white;
+		background: darkgray;
+	}
+</style>
 <body>
 	<h1>WinAuth to andOTP conversion</h1>
-	<input type="file" id="input-text"></input>
+	<label class="custom-file-upload">
+		<input type="file" id="input-text"></input>
+		SELECT FILE
+	</label>
 	<br>
-	<button onclick="startConversion()" style="margin-top: 15px;">CONVERT</button>
-	<script> 
+	<button id="conversion-button" disabled onclick="convertAndDownload()" style="margin-top: 15px;">CONVERT</button>
+	<script>
+
+		// Enable conversion button on file selection
+		document.getElementById('input-text').addEventListener('change', function(innerEvent) {
+			document.getElementById('conversion-button').removeAttribute('disabled');
+		});
+
+		// Convert input text file to andOTP JSON
 		function convertWinAuthToAndOtp(inputText) {
 			let otpJSON = [];
-			let splitText = inputText.split('\n');
+			let splitText = inputText.split('\n'); // Split input file into lines
 
-			for (lineIndex in splitText) {
-				if (splitText[lineIndex].trim().length < 1) {
-					continue;
-				}
-				var line = splitText[lineIndex];
-				var otpBlock = {};
-				var type = line.split('otpauth://')[1].split('/')[0];
-				var label = decodeURIComponent(line.split(type + '/')[1].split('?')[0]).replaceAll('+', ' ');
-				var secret = line.split('?secret=')[1].split('&')[0];
-				var digits = line.split('&digits=')[1].split('&')[0];
-				var issuer = '';
-				if (line.split('&issuer=').length > 1) {
-					issuer = decodeURIComponent(line.split('&issuer=')[1].split('&')[0]).replaceAll('+', ' ');
-					label = label.replace(issuer + ':', '');
-				}
-				if (issuer === 'Steam') {
-					type = 'STEAM';
-				}
+			try {
+				for (lineIndex in splitText) {
 
-				otpBlock.secret = secret;
-				otpBlock.type = type.toUpperCase();
-				otpBlock.label = label;
-				otpBlock.digits = parseInt(digits);
-				otpBlock.issuer = issuer;
-				otpBlock.tags = [];
-				otpBlock.period = 30;
-				otpBlock.used_frequency = 0;
-				otpBlock.thumbnail = 'Default';
-				otpJSON.push(otpBlock);
+					// Avoid empty values
+					if (splitText[lineIndex].trim().length < 1) {
+						continue;
+					}
+
+					// Setup values
+					var line = splitText[lineIndex];
+					var otpBlock = {};
+					var type = line.split('otpauth://')[1].split('/')[0];
+					var label = decodeURIComponent(line.split(type + '/')[1].split('?')[0]).replaceAll('+', ' ');
+					var secret = line.split('?secret=')[1].split('&')[0];
+					var digits = line.split('&digits=')[1].split('&')[0];
+					var issuer = '';
+					if (line.split('&issuer=').length > 1) {
+						issuer = decodeURIComponent(line.split('&issuer=')[1].split('&')[0]).replaceAll('+', ' ');
+						label = label.replace(issuer + ':', '');
+					}
+					// Set STEAM type for "Steam" issuer [the type is actually TOTP, andOTP just sets it to STEAM]
+					if (issuer === 'Steam') {
+						type = 'STEAM';
+					}
+
+					// Create JSON block and add it to the array
+					otpBlock.secret = secret;
+					otpBlock.type = type.toUpperCase();
+					otpBlock.label = label;
+					otpBlock.digits = parseInt(digits);
+					otpBlock.issuer = issuer;
+					otpBlock.tags = [];
+					otpBlock.period = 30;
+					otpBlock.used_frequency = 0;
+					otpBlock.thumbnail = 'Default';
+					otpJSON.push(otpBlock);
+				}
+			} catch (exception) {
+				// Something went wrong, show an error alert
+				window.alert('There was an error! Make sure the input file is valid.');
+				return 1;
 			}
 			return otpJSON;
 		}
 
-		function startConversion() {
+		// Setup the conversion and then download the output file
+		function convertAndDownload() {
 			var file = document.getElementById('input-text');
 
 			const reader = new FileReader();
 			reader.addEventListener('load', function () {
+
+				// Convert input file to andOTP
 				var returnedFile = convertWinAuthToAndOtp(reader.result);
-				var date = new Date();
-				var utc = date.toISOString().replaceAll('-', '');
-				download('andOTP' + utc + '.json', JSON.stringify(returnedFile, null, 4));
+				if (returnedFile !== 1) {
+
+					// Download file using a timestamped name
+					var date = new Date();
+					var time = date.toLocaleString().replaceAll(',','-').replaceAll('/', '-').replaceAll(':', '-').replaceAll(' ', '');
+					download('andOTP_' + time + '.json', JSON.stringify(returnedFile, null, 4));
+				} else {
+
+					// Reset input and button
+					document.getElementById('input-text').value = "";
+					document.getElementById('conversion-button').setAttribute('disabled', '');
+				}
 			});
 			reader.readAsText(file.files[0]);
 		}
 
+		// Download a file (https://stackoverflow.com/a/18197341)
 		function download(filename, text) {
 			var element = document.createElement('a');
 			element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
