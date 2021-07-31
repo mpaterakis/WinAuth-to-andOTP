@@ -1,0 +1,70 @@
+
+<html>
+<body>
+	<h1>WinAuth to andOTP conversion</h1>
+	<input type="file" id="input-text"></input>
+	<br>
+	<button onclick="startConversion()" style="margin-top: 15px;">CONVERT</button>
+	<script> 
+		function convertWinAuthToAndOtp(inputText) {
+			console.log(inputText);
+			let otpJSON = [];
+			let splitText = inputText.split('\n');
+
+			for (lineIndex in splitText) {
+				if (lineIndex < 1 || splitText[lineIndex].trim().length < 1) {
+					continue;
+				}
+				var line = splitText[lineIndex];
+				var otpBlock = {};
+				var type = line.split('otpauth://')[1].split('/')[0];
+				var label = line.split(type + '/')[1].split('?')[0].replaceAll('+', ' ');
+				var secret = line.split('?secret=')[1].split('&')[0];
+				var digits = line.split('&digits=')[1].split('&')[0];
+				var issuer = '';
+				if (line.split('&issuer=').length > 1) {
+					issuer = line.split('&issuer=')[1].split('&')[0];
+				}
+
+				otpBlock.secret = secret;
+				otpBlock.type = type.toUpperCase();
+				otpBlock.label = label;
+				otpBlock.digits = parseInt(digits);
+				otpBlock.issuer = issuer;
+				otpBlock.tags = [];
+				otpBlock.period = 30;
+				otpBlock.used_frequency = 0;
+				otpBlock.thumbnail = 'Default';
+				otpJSON.push(otpBlock);
+			}
+			return otpJSON;
+		}
+
+		function startConversion() {
+			var file = document.getElementById('input-text');
+
+			const reader = new FileReader();
+			reader.addEventListener('load', function () {
+				var returnedFile = convertWinAuthToAndOtp(reader.result);
+				var date = new Date();
+				var utc = date.toISOString().replaceAll('-', '');
+				download('andOTP' + utc + '.json', JSON.stringify(returnedFile));
+			});
+			reader.readAsText(file.files[0]);
+		}
+
+		function download(filename, text) {
+			var element = document.createElement('a');
+			element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+			element.setAttribute('download', filename);
+
+			element.style.display = 'none';
+			document.body.appendChild(element);
+
+			element.click();
+
+			document.body.removeChild(element);
+		}
+	</script>
+</body>
+</html>
